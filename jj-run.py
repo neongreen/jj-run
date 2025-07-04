@@ -95,15 +95,13 @@ def run_jj_command(
     command: str,
     revset: str,
     err_strategy: Literal["continue", "stop", "fatal"] = "continue",
-) -> None:
+) -> int:
     """
     Main entry point to run `jj run` with command handling and error strategies.
 
     :param command: User-provided command (e.g., "jj new && jj restore ...")
     :param err_strategy: Error handling strategy ("continue", "stop", "fatal")
     """
-    current_operation = get_current_op_id()
-    print(f"Current operation: {current_operation[:12]}", file=sys.stderr)
     with managed_workspace() as (workspace_path, workspace_name):
         [workspace_change] = get_change_list(
             f"{workspace_name}@", workspace_path=workspace_path
@@ -116,8 +114,9 @@ def run_jj_command(
         if not changes:
             print("No changes found to process.", file=sys.stderr)
             abandon_changes([workspace_change.change_id])
-            return
+            return 0  # Return 0 modified commits if no changes
         new_changes: list[Change] = []
+        modified_count = 0  # Initialize modified_count
         try:
             new_changes, all_successful = process_changes(
                 workspace_path, changes, command, err_strategy
@@ -132,6 +131,7 @@ def run_jj_command(
         print(f"Rewrote {modified_count}/{total_changes} commits.", file=sys.stderr)
         if not all_successful:
             print("Not all changes were processed successfully.", file=sys.stderr)
+        return modified_count
 
 
 def is_change_empty(workspace_path: str, change_id: str) -> bool:
@@ -364,17 +364,24 @@ def get_current_op_id() -> str:
 
 if __name__ == "__main__":
     args = parse_args()
-    before_op = None
-    after_op = None
+
     try:
-        # Get the operation id before running
         before_op = get_current_op_id()
-        run_jj_command(
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Failed to get current operation ID: {e.stderr.strip()}", file=sys.stderr
+        )
+        exit(1)
+
+    print(f"Current operation: {before_op[:12]}. To revert, run:", file=sys.stderr)
+    print(f"  jj op restore {before_op[:12]}\n", file=sys.stderr)
+
+    try:
+        modified_count = run_jj_command(
             command=" ".join(args.command),
             revset=args.revset,
             err_strategy=args.err_strategy,
         )
-        # Get the operation id after running
         after_op = get_current_op_id()
     except SystemExit as _e:
         # Only propagate nonzero exit if err_strategy is 'fatal' or 'stop'
@@ -384,25 +391,21 @@ if __name__ == "__main__":
             pass
 
     # Output for the user: how to compare before/after states
-    if before_op and after_op:
-        # TODO: this is useless b/c operation IDs are always gonna be different
-        if before_op != after_op:
-            print(
-                "\nTo compare the changes between the 'before' and 'after' repo states, run:",
-                file=sys.stderr,
-            )
-            # TODO: not 100% sure about off by one errors
-            print(
-                f"  jj operation diff --from {before_op[:12]} --to {after_op[:12]} -p\n",
-                file=sys.stderr,
-            )
-        else:
-            print("\nNo changes were made to the repository.\n", file=sys.stderr)
-    else:
+    if after_op and modified_count > 0:
         print(
-            "\nCouldn't get operation IDs before and after. Likely a bug in jj-run.",
+            "To compare the changes between the 'before' and 'after' repo states, run:",
             file=sys.stderr,
         )
+        print(
+            f"  jj operation diff --from {before_op[:12]} --to {after_op[:12]} -p\n",
+            file=sys.stderr,
+        )
+    elif not after_op:
+        print(
+            "Couldn't get current operation ID. Likely a bug in jj-run.",
+            file=sys.stderr,
+        )
+        exit(1)
 
     # actually run
     # print(
