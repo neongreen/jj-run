@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import os
 import subprocess
 import argparse
-from typing import Tuple
+from typing import Literal, Tuple
 import tempfile
 import sys
 
@@ -91,7 +91,11 @@ def managed_workspace():
         forget_workspace(workspace_name)
 
 
-def run_jj_command(command: str, revset: str, err_strategy: str = "continue") -> None:
+def run_jj_command(
+    command: str,
+    revset: str,
+    err_strategy: Literal["continue", "stop", "fatal"] = "continue",
+) -> None:
     """
     Main entry point to run `jj run` with command handling and error strategies.
 
@@ -247,7 +251,10 @@ def create_workspace() -> Tuple[str, str]:
 
 
 def process_changes(
-    workspace_path: str, changes: list[Change], command: str, err_strategy: str
+    workspace_path: str,
+    changes: list[Change],
+    command: str,
+    err_strategy: Literal["continue", "stop", "fatal"],
 ) -> tuple[list[Change], bool]:
     """
     Process each change sequentially in an isolated workspace.
@@ -288,7 +295,9 @@ def process_changes(
 
 
 def handle_errors(
-    result: subprocess.CompletedProcess, err_strategy: str, change: str
+    result: subprocess.CompletedProcess,
+    err_strategy: Literal["continue", "stop", "fatal"],
+    change: str,
 ) -> bool:
     """
     Manage error strategy post-command based on exit statuses for changes.
@@ -300,14 +309,15 @@ def handle_errors(
     """
     if result.returncode != 0:
         error_msg = format_error_msg(result, change)
-        if err_strategy == "continue":
-            print(error_msg)
-        elif err_strategy == "stop":
-            print(f"Stopped on change [with fail] {change}:\n{error_msg}")
-            return True
-        elif err_strategy == "fatal":
-            print(f"Fatal error at change [{change}]:\n{error_msg}")
-            raise SystemExit(result.returncode)
+        match err_strategy:
+            case "continue":
+                print(error_msg)
+            case "stop":
+                print(f"Stopped on change [with fail] {change}:\n{error_msg}")
+                return True
+            case "fatal":
+                print(f"Fatal error at change [{change}]:\n{error_msg}")
+                raise SystemExit(result.returncode)
     return False
 
 
