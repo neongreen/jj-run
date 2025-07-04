@@ -105,13 +105,14 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue"):
     # get the new empty change created by `jj workspace add`
     [workspace_change] = get_change_list(f"{workspace_name}@")
     changes = get_change_list(f"({revset}) ~ {workspace_change.change_id} ~ root()")
+    total_changes = len(changes)
     if not changes:
         print("No changes found to process.")
         forget_workspace(workspace_name)
         abandon_changes([workspace_change.change_id])
         return
     new_changes = process_changes(workspace_path, changes, command, err_strategy)
-    rewrite_parents(workspace_path, new_changes)
+    modified_count = rewrite_parents(workspace_path, new_changes)
     run(
         ["jj", "workspace", "update-stale"],
         shell=False,
@@ -129,12 +130,16 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue"):
     )
     forget_workspace(workspace_name)
     abandon_changes([c.change_id for c in new_changes + [workspace_change]])
+    print(f"Rewrote {modified_count}/{total_changes} commits.")
 
 
-def rewrite_parents(workspace_path: str, changes: list[Change]):
+def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
     """
     For each change, rewrite its parent's snapshot to that commit.
+
+    :returns: Number of commits modified (empty changes are skipped)
     """
+    modified_count = 0
     for change in changes:
         # If the change doesn't exist or is empty, we have to skip it b/c otherwise jj might fail when rewriting.
         is_empty_result = run(
@@ -170,6 +175,9 @@ def rewrite_parents(workspace_path: str, changes: list[Change]):
                 capture_output=True,
                 cwd=workspace_path,
             )
+            modified_count += 1
+
+    return modified_count
 
 
 def abandon_changes(changes: list[str]):
