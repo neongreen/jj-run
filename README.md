@@ -42,6 +42,23 @@ python3 jj-run.py -r 'mutable()' -e continue 'make test'
   - `fatal`: Exits immediately on the first error.
 - All changes are isolated in the temp workspace. If the script crashes, cleanup is handled per session. The original repository is never modified by failed runs.
 
+## Setting up a `jj x` alias
+
+```sh
+jj config set --user aliases.x '["util", "exec", "--", "/absolute/path/to/jj-run.py"]'
+```
+
+Or in your config:
+
+```toml
+[aliases]
+x = ["util", "exec", "--", "/absolute/path/to/jj-run.py"]
+```
+
+Replace `/absolute/path/to/jj-run.py` with the full path to `jj-run.py` script.
+
+We can't use `run` because it's already defined (as a stub).
+
 ## License
 
 MIT
@@ -53,4 +70,3 @@ MIT
 5. Provide CHANGE_ID, COMMIT_ID, REPO_PATH as env vars to the command
 7. `--json` output
 8. Add a `--readonly` flag that doesn't create new changes, just runs the command for each
-9. Add instructions for setting up an alias
