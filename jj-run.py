@@ -111,26 +111,35 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue"):
         forget_workspace(workspace_name)
         abandon_changes([workspace_change.change_id])
         return
-    new_changes = process_changes(workspace_path, changes, command, err_strategy)
-    modified_count = rewrite_parents(workspace_path, new_changes)
-    run(
-        ["jj", "workspace", "update-stale"],
-        shell=False,
-        text=True,
-        check=True,
-        capture_output=True,
-    )
-    run(
-        ["jj", "workspace", "update-stale"],
-        shell=False,
-        text=True,
-        check=True,
-        capture_output=True,
-        cwd=workspace_path,
-    )
-    forget_workspace(workspace_name)
-    abandon_changes([c.change_id for c in new_changes + [workspace_change]])
+    new_changes = []
+    try:
+        new_changes, all_successful = process_changes(
+            workspace_path, changes, command, err_strategy
+        )
+        modified_count = rewrite_parents(workspace_path, new_changes)
+        run(
+            ["jj", "workspace", "update-stale"],
+            shell=False,
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+        run(
+            ["jj", "workspace", "update-stale"],
+            shell=False,
+            text=True,
+            check=True,
+            capture_output=True,
+            cwd=workspace_path,
+        )
+    finally:
+        forget_workspace(workspace_name)
+        abandon_changes(
+            [c.change_id for c in new_changes] + [workspace_change.change_id]
+        )
     print(f"Rewrote {modified_count}/{total_changes} commits.")
+    if not all_successful:
+        print("Not all changes were processed successfully.")
 
 
 def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
@@ -278,17 +287,18 @@ def create_workspace() -> tuple[str, str]:
 
 def process_changes(
     workspace_path: str, changes: list[Change], command: str, err_strategy: str
-) -> list[Change]:
+) -> tuple[list[Change], bool]:
     """
     Process each change sequentially in an isolated workspace.
 
     :param workspace_path: Path to the workspace directory
     :param command: The command to execute on each change
     :param err_strategy: Strategy for handling errors
-    :returns: List of newly created changes
+    :returns: Tuple of (List of newly created changes, all_successful: bool)
     """
     new_changes = []
     exit_early = False
+    all_successful = True
     for change_data in changes:
         change_id = change_data.change_id
         message = change_data.description.strip()
@@ -317,12 +327,13 @@ def process_changes(
             print(f"stderr: {result.stderr.strip()}", end=" ")
         if result.returncode != 0:
             print(f"Command failed with return code {result.returncode}", end=" ")
+            all_successful = False
         print()  # Add a newline after the command output
         exit_early = handle_errors(result, err_strategy, message)
         new_changes += get_change_list("@", workspace_path=workspace_path)
         if exit_early:
             break
-    return new_changes
+    return new_changes, all_successful
 
 
 def handle_errors(
