@@ -58,12 +58,12 @@ def print_command_result(result: subprocess.CompletedProcess) -> None:
     Print the stdout and stderr of a subprocess result if present.
     """
     if result.stdout and result.stdout.strip():
-        print(f"stdout: {result.stdout.strip()}", end=" ")
+        print(f"stdout: {result.stdout.strip()}")
     if result.stderr and result.stderr.strip():
-        print(f"stderr: {result.stderr.strip()}", end=" ")
+        print(f"stderr: {result.stderr.strip()}", file=sys.stderr)
     if result.returncode != 0:
-        print(f"Command failed with return code {result.returncode}", end=" ")
-    print()  # Add a newline after the command output
+        print(f"Command failed with return code {result.returncode}", file=sys.stderr)
+    print()
 
 
 def format_error_msg(result: subprocess.CompletedProcess, change: str) -> str:
@@ -103,7 +103,7 @@ def run_jj_command(
     :param err_strategy: Error handling strategy ("continue", "stop", "fatal")
     """
     current_operation = get_current_op_id()
-    print(f"Current operation: {current_operation[:12]}")
+    print(f"Current operation: {current_operation[:12]}", file=sys.stderr)
     with managed_workspace() as (workspace_path, workspace_name):
         [workspace_change] = get_change_list(
             f"{workspace_name}@", workspace_path=workspace_path
@@ -114,7 +114,7 @@ def run_jj_command(
         )
         total_changes = len(changes)
         if not changes:
-            print("No changes found to process.")
+            print("No changes found to process.", file=sys.stderr)
             abandon_changes([workspace_change.change_id])
             return
         new_changes: list[Change] = []
@@ -129,9 +129,9 @@ def run_jj_command(
             abandon_changes(
                 [c.change_id for c in new_changes] + [workspace_change.change_id]
             )
-        print(f"Rewrote {modified_count}/{total_changes} commits.")
+        print(f"Rewrote {modified_count}/{total_changes} commits.", file=sys.stderr)
         if not all_successful:
-            print("Not all changes were processed successfully.")
+            print("Not all changes were processed successfully.", file=sys.stderr)
 
 
 def is_change_empty(workspace_path: str, change_id: str) -> bool:
@@ -271,7 +271,8 @@ def process_changes(
         change_id = change_data.change_id
         message = change_data.description.strip()
         print(
-            f"Processing change {idx}/{total_changes} {change_id[:12]}: {message or '(no description set)'}"
+            f"Processing change {idx}/{total_changes} {change_id[:12]}: {message or '(no description set)'}",
+            file=sys.stderr,
         )
         run(["jj", "new", change_id], cwd=workspace_path)
         try:
@@ -307,12 +308,14 @@ def handle_errors(
     if result.returncode != 0:
         error_msg = format_error_msg(result, change)
         if err_strategy == "continue":
-            print(error_msg)
+            print(error_msg, file=sys.stderr)
         elif err_strategy == "stop":
-            print(f"Stopped on change [with fail] {change}:\n{error_msg}")
+            print(
+                f"Stopped on change [with fail] {change}:\n{error_msg}", file=sys.stderr
+            )
             return True
         elif err_strategy == "fatal":
-            print(f"Fatal error at change [{change}]:\n{error_msg}")
+            print(f"Fatal error at change [{change}]:\n{error_msg}", file=sys.stderr)
             raise SystemExit(result.returncode)
     return False
 
@@ -385,16 +388,21 @@ if __name__ == "__main__":
         # TODO: this is useless b/c operation IDs are always gonna be different
         if before_op != after_op:
             print(
-                "\nTo compare the changes between the 'before' and 'after' repo states, run:"
+                "\nTo compare the changes between the 'before' and 'after' repo states, run:",
+                file=sys.stderr,
             )
             # TODO: not 100% sure about off by one errors
             print(
-                f"  jj operation diff --from {before_op[:12]} --to {after_op[:12]} -p\n"
+                f"  jj operation diff --from {before_op[:12]} --to {after_op[:12]} -p\n",
+                file=sys.stderr,
             )
         else:
-            print("\nNo changes were made to the repository.\n")
+            print("\nNo changes were made to the repository.\n", file=sys.stderr)
     else:
-        print("\nCouldn't get operation IDs before and after. Likely a bug in jj-run.")
+        print(
+            "\nCouldn't get operation IDs before and after. Likely a bug in jj-run.",
+            file=sys.stderr,
+        )
 
     # actually run
     # print(

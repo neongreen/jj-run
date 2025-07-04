@@ -26,29 +26,13 @@ def demo(command):
             stderr=subprocess.PIPE,
         )
 
-    stdout_capture = []
-    stderr_capture = []
-
-    if process.stdout:
-        for line in iter(process.stdout.readline, ""):
-            sys.stdout.write(line)
-            stdout_capture.append(line)
-        process.stdout.close()
-
-    if process.stderr:
-        for line in iter(process.stderr.readline, ""):
-            sys.stderr.write(line)
-            stderr_capture.append(line)
-        process.stderr.close()
-
-    return_code = process.wait()
+    stdout, stderr = process.communicate()
+    sys.stdout.write(stdout)
+    sys.stderr.write(stderr)
 
     print("-----------------------------------------------------------------\n")
 
-    stdout = "".join(stdout_capture)
-    stderr = "".join(stderr_capture)
-
-    return subprocess.CompletedProcess(command, return_code, stdout, stderr)
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
 def main():
@@ -80,11 +64,11 @@ def main():
         ]
         result = demo(jj_run_command)
         # Should report error for failed command
-        assert "Error while processing change" in result.stdout or result.stderr, (
+        assert "Error while processing change" in result.stderr, (
             "Should report error for failed command"
         )
         # The command 'test -f failme.txt && exit 1' should have failed with exit code 1
-        assert "Command failed with return code 1" in result.stdout, (
+        assert "Command failed with return code 1" in result.stderr, (
             "Should report command failed with return code 1"
         )
         # Should exit 0 with -e continue
@@ -103,7 +87,7 @@ def main():
         assert result_stop.returncode != 0, (
             "Should exit nonzero with -e stop on failure"
         )
-        assert "Command failed with return code 1" in result_stop.stdout, (
+        assert "Command failed with return code 1" in result_stop.stderr, (
             "Should report command failed with return code 1"
         )
         print("test2.py: SUCCESS")

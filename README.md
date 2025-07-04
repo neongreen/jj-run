@@ -65,7 +65,6 @@ MIT
 
 ## TODO
 
-3. Use stderr for all messages except the command output
 4. Add a quiet mode that only prints stdout/stderr of the command
 5. Provide CHANGE_ID, COMMIT_ID, REPO_PATH as env vars to the command
 7. `--json` output

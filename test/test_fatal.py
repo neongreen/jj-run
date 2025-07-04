@@ -71,11 +71,12 @@ def main():
         result = demo(jj_run_command)
         # Should exit nonzero with -e fatal
         assert result.returncode != 0, "Should exit nonzero with -e fatal on failure"
-        assert "Command failed with return code 1" in result.stdout, (
-            "Should report command failed with return code 1"
+        assert "Command failed with return code 1" in result.stderr, (
+            "Should report command failed with return code 1, but got:\n"
+            f"{result.stderr}"
         )
-        assert "Fatal error at change" in result.stdout or result.stderr, (
-            "Should report fatal error at change"
+        assert "Fatal error at change" in result.stderr, (
+            f"Should report fatal error at change, but got:\n{result.stderr}"
         )
         print("test_fatal.py: SUCCESS")
     finally:
