@@ -255,6 +255,8 @@ def process_changes(
     new_changes = []
     exit_early = False
     all_successful = True
+    import subprocess as sp
+
     for change_data in changes:
         change_id = change_data.change_id
         message = change_data.description.strip()
@@ -266,17 +268,23 @@ def process_changes(
             ["jj", "new", change_id],
             cwd=workspace_path,
         )
-        result = run(
-            command,
-            shell=True,
-            cwd=workspace_path,
-        )
+        try:
+            result = run(
+                command,
+                shell=True,
+                cwd=workspace_path,
+            )
+        except sp.CalledProcessError as e:
+            # Create a CompletedProcess-like object for error handling
+            result = sp.CompletedProcess(e.cmd, e.returncode, e.output, e.stderr)
         print_command_result(result)
         if result.returncode != 0:
             all_successful = False
         exit_early = handle_errors(result, err_strategy, message)
         new_changes += get_change_list("@", workspace_path=workspace_path)
         if exit_early:
+            if err_strategy == "stop":
+                raise SystemExit(result.returncode)
             break
     return new_changes, all_successful
 
@@ -333,6 +341,14 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    run_jj_command(
-        command=args.command, revset=args.revset, err_strategy=args.err_strategy
-    )
+    try:
+        run_jj_command(
+            command=args.command, revset=args.revset, err_strategy=args.err_strategy
+        )
+    except SystemExit as _e:
+        # Only propagate nonzero exit if err_strategy is 'fatal' or 'stop'
+        match args.err_strategy:
+            case "fatal" | "stop":
+                raise
+            case "continue":
+                sys.exit(0)
