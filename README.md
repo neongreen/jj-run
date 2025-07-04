@@ -70,3 +70,5 @@ MIT
 5. Provide CHANGE_ID, COMMIT_ID, REPO_PATH as env vars to the command
 7. `--json` output
 8. Add a `--readonly` flag that doesn't create new changes, just runs the command for each
+10. Handle `--ignore-immutable`
+11. Allow `-s` as an alias for `-r` (since `jj fix` uses `-s`)
