@@ -328,8 +328,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-r",
         "--revset",
-        required=True,
-        help="Revset to process",
+        required=False,
+        default="reachable(@, mutable())",
+        help="Revset to process (default: reachable(@, mutable()))",
     )
     parser.add_argument(
         "-e",

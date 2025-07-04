@@ -11,7 +11,7 @@ A script to execute shell commands across multiple repository changes in isolate
 python3 jj-run.py -r <revset> [-e <error_strategy>] <command> 
 ```
 
-- `-r`, `--revset`: **Required.** The revset of changes to process.
+- `-r`, `--revset`: The revset of changes to process. If not provided, defaults to `reachable(@, mutable())` (same as `jj fix`).
 - `-e`, `--err-strategy`: How to handle errors. One of:
   - `continue` (default): Log errors and continue to next change.
   - `stop`: Stop on the first error, but finish already started changes.
@@ -48,7 +48,6 @@ MIT
 
 ## TODO
 
-2. The default revset should be whatever `jj fix` has
 3. Use stderr for all messages except the command output
 4. Add a quiet mode that only prints stdout/stderr of the command
 5. Provide CHANGE_ID, COMMIT_ID, REPO_PATH as env vars to the command
