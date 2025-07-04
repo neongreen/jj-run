@@ -378,6 +378,7 @@ if __name__ == "__main__":
 
     # Output for the user: how to compare before/after states
     if before_op and after_op:
+        # TODO: this is useless b/c operation IDs are always gonna be different
         if before_op != after_op:
             print(
                 "\nTo compare the changes between the 'before' and 'after' repo states, run:"
