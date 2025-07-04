@@ -71,8 +71,8 @@ def format_error_msg(result: subprocess.CompletedProcess, change: str) -> str:
     Format an error message for a failed subprocess command.
     """
     return (
-        f"Error while processing change [{change}]:\n"
-        f"Returncode: {result.returncode}\n"
+        f"Error while processing change [{change[:12]}]:\n"
+        f"Return code: {result.returncode}\n"
         f"STDOUT:\n{result.stdout}\n"
         f"STDERR:\n{result.stderr}"
     )
@@ -101,7 +101,8 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue") ->
     current_operation = run(
         ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"], cwd="."
     ).stdout.strip()
-    print(f"Current operation: {current_operation}")
+    # Only print first 12 chars of operation id
+    print(f"Current operation: {current_operation[:12]}")
     with managed_workspace() as (workspace_path, workspace_name):
         [workspace_change] = get_change_list(
             f"{workspace_name}@", workspace_path=workspace_path
@@ -175,7 +176,11 @@ def abandon_changes(changes: list[str]) -> None:
 
     # TODO: can batch but must make sure to not run into arg length limits
     for change in changes:
-        run(["jj", "abandon", f"present({change})", "--ignore-working-copy"], cwd=".")
+        # Only print first 12 chars of change id when abandoning
+        run(
+            ["jj", "abandon", f"present({change[:12]})", "--ignore-working-copy"],
+            cwd=".",
+        )
 
 
 def forget_workspace(workspace_name: str) -> None:
@@ -260,9 +265,9 @@ def process_changes(
     for change_data in changes:
         change_id = change_data.change_id
         message = change_data.description.strip()
+        # Only print first 12 chars of change id
         print(
-            f"Processing change {change_id}: {message or '(no description set)'}",
-            end=" ",
+            f"Processing change {change_id[:12]}: {message or '(no description set)'}"
         )
         run(["jj", "new", change_id], cwd=workspace_path)
         try:
@@ -273,7 +278,7 @@ def process_changes(
         print_command_result(result)
         if result.returncode != 0:
             all_successful = False
-        exit_early = handle_errors(result, err_strategy, message)
+        exit_early = handle_errors(result, err_strategy, change_id[:12])
         new_changes += get_change_list("@", workspace_path=workspace_path)
         if exit_early:
             if err_strategy == "stop":
