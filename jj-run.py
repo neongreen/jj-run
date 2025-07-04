@@ -3,6 +3,7 @@
 # Tests:
 #
 # - test1.py: Basic functionality smoke test.
+# - test2.py: Tests what happens when the command fails.
 
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -131,6 +132,17 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue") ->
             print("Not all changes were processed successfully.")
 
 
+def is_change_empty(workspace_path: str, change_id: str) -> bool:
+    """
+    Check if a change is empty (does not exist or has empty content).
+    """
+    result = run(
+        ["jj", "log", "-T", "json(empty)", "-r", f"present({change_id})", "--no-graph"],
+        cwd=workspace_path,
+    )
+    return result.stdout.strip() != "false"
+
+
 def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
     """
     For each change, rewrite its parent's snapshot to that commit.
@@ -140,19 +152,7 @@ def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
     modified_count = 0
     for change in changes:
         # If the change doesn't exist or is empty, we have to skip it b/c otherwise jj might fail when rewriting.
-        is_empty_result = run(
-            [
-                "jj",
-                "log",
-                "-T",
-                "json(empty)",
-                "-r",
-                f"present({change.change_id})",
-                "--no-graph",
-            ],
-            cwd=workspace_path,
-        )
-        if is_empty_result.stdout.strip() == "false":
+        if not is_change_empty(workspace_path, change.change_id):
             run(
                 ["jj", "edit", change.parents[0]],
                 cwd=workspace_path,
@@ -264,16 +264,9 @@ def process_changes(
             f"Processing change {change_id}: {message or '(no description set)'}",
             end=" ",
         )
-        run(
-            ["jj", "new", change_id],
-            cwd=workspace_path,
-        )
+        run(["jj", "new", change_id], cwd=workspace_path)
         try:
-            result = run(
-                command,
-                shell=True,
-                cwd=workspace_path,
-            )
+            result = run(command, shell=True, cwd=workspace_path)
         except sp.CalledProcessError as e:
             # Create a CompletedProcess-like object for error handling
             result = sp.CompletedProcess(e.cmd, e.returncode, e.output, e.stderr)
@@ -327,7 +320,10 @@ def parse_args() -> argparse.Namespace:
         help="Revset to process",
     )
     parser.add_argument(
-        "-c", "--command", required=True, help="Command to execute on commits"
+        "-c",
+        "--command",
+        required=True,
+        help="Command to execute on commits",
     )
     parser.add_argument(
         "-e",
