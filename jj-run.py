@@ -55,11 +55,15 @@ EXIT STATUS
       Nonzero: Indicated by an error, based on last command or handled error level.
 """
 
+# Tests:
+#
+# - test1.py: Basic functionality smoke test.
+
 from dataclasses import dataclass
 import os
 import subprocess
 import argparse
-from typing import List
+from typing import Tuple
 import tempfile
 import sys
 
@@ -72,22 +76,37 @@ class Change:
     parents: list[str]
 
 
-def run(*args, **kwargs):
+def run(
+    *args, cwd: str, shell=False, text=True, capture_output=True, check=True, **kwargs
+):
     """
     Wrapper for subprocess.run to handle errors by printing stderr and exiting.
 
     :param args: Positional arguments for subprocess.run
-    :param kwargs: Keyword arguments for subprocess.run
+    :param cwd: Working directory (mandatory)
+    :param shell: Whether to use the shell (default: False)
+    :param text: Return output as text (default: True)
+    :param capture_output: Capture stdout and stderr (default: True)
+    :param check: Raise error on non-zero exit (default: True)
+    :param kwargs: Other keyword arguments for subprocess.run
     """
     try:
-        result = subprocess.run(*args, **kwargs)
+        result = subprocess.run(
+            *args,
+            cwd=cwd,
+            shell=shell,
+            text=text,
+            capture_output=capture_output,
+            check=check,
+            **kwargs,
+        )
         return result
     except subprocess.CalledProcessError as e:
         print(f"{e.cmd=}, {e.stderr=}, {e.stdout=}", file=sys.stderr)
         raise
 
 
-def run_jj_command(command: str, revset: str, err_strategy: str = "continue"):
+def run_jj_command(command: str, revset: str, err_strategy: str = "continue") -> None:
     """
     Main entry point to run `jj run` with command handling and error strategies.
 
@@ -95,43 +114,32 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue"):
     :param err_strategy: Error handling strategy ("continue", "stop", "fatal")
     """
     current_operation = run(
-        ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"],
-        shell=False,
-        text=True,
-        capture_output=True,
+        ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"], cwd="."
     ).stdout.strip()
     print(f"Current operation: {current_operation}")
     [workspace_path, workspace_name] = create_workspace()
     # get the new empty change created by `jj workspace add`
-    [workspace_change] = get_change_list(f"{workspace_name}@")
-    changes = get_change_list(f"({revset}) ~ {workspace_change.change_id} ~ root()")
+    [workspace_change] = get_change_list(
+        f"{workspace_name}@", workspace_path=workspace_path
+    )
+    changes = get_change_list(
+        f"({revset}) ~ {workspace_change.change_id} ~ root()",
+        workspace_path=workspace_path,
+    )
     total_changes = len(changes)
     if not changes:
         print("No changes found to process.")
         forget_workspace(workspace_name)
         abandon_changes([workspace_change.change_id])
         return
-    new_changes = []
+    new_changes: list[Change] = []
     try:
         new_changes, all_successful = process_changes(
             workspace_path, changes, command, err_strategy
         )
         modified_count = rewrite_parents(workspace_path, new_changes)
-        run(
-            ["jj", "workspace", "update-stale"],
-            shell=False,
-            text=True,
-            check=True,
-            capture_output=True,
-        )
-        run(
-            ["jj", "workspace", "update-stale"],
-            shell=False,
-            text=True,
-            check=True,
-            capture_output=True,
-            cwd=workspace_path,
-        )
+        run(["jj", "workspace", "update-stale"], cwd=".")
+        run(["jj", "workspace", "update-stale"], cwd=workspace_path)
     finally:
         forget_workspace(workspace_name)
         abandon_changes(
@@ -161,27 +169,15 @@ def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
                 f"present({change.change_id})",
                 "--no-graph",
             ],
-            shell=False,
-            text=True,
-            check=True,
-            capture_output=True,
             cwd=workspace_path,
         )
         if is_empty_result.stdout.strip() == "false":
             run(
                 ["jj", "edit", change.parents[0]],
-                shell=False,
-                text=True,
-                check=True,
-                capture_output=True,
                 cwd=workspace_path,
             )
             run(
                 ["jj", "restore", "--from", change.change_id, "--restore-descendants"],
-                shell=False,
-                text=True,
-                check=True,
-                capture_output=True,
                 cwd=workspace_path,
             )
             modified_count += 1
@@ -189,7 +185,7 @@ def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
     return modified_count
 
 
-def abandon_changes(changes: list[str]):
+def abandon_changes(changes: list[str]) -> None:
     """
     Abandon all changes in the provided list.
 
@@ -198,31 +194,19 @@ def abandon_changes(changes: list[str]):
 
     # TODO: can batch but must make sure to not run into arg length limits
     for change in changes:
-        run(
-            ["jj", "abandon", f"present({change})", "--ignore-working-copy"],
-            shell=False,
-            text=True,
-            check=True,
-            capture_output=True,
-        )
+        run(["jj", "abandon", f"present({change})", "--ignore-working-copy"], cwd=".")
 
 
-def forget_workspace(workspace_name: str):
+def forget_workspace(workspace_name: str) -> None:
     """
     Forget the workspace after processing commits.
 
     :param workspace_name: Name of the workspace to forget
     """
-    run(
-        ["jj", "workspace", "forget", workspace_name],
-        shell=False,
-        text=True,
-        check=True,
-        capture_output=True,
-    )
+    run(["jj", "workspace", "forget", workspace_name], cwd=".")
 
 
-def get_change_list(revset: str, workspace_path: str = ".") -> List[Change]:
+def get_change_list(revset: str, workspace_path: str = ".") -> list[Change]:
     """
     Parse and return the list of changes in JSON format.
 
@@ -230,9 +214,6 @@ def get_change_list(revset: str, workspace_path: str = ".") -> List[Change]:
     """
     change_process = run(
         ["jj", "log", "-r", revset, "--template", "json(self)", "--no-graph"],
-        shell=False,
-        text=True,
-        capture_output=True,
         cwd=workspace_path,
     )
     if not change_process.stdout:
@@ -262,7 +243,7 @@ def get_change_list(revset: str, workspace_path: str = ".") -> List[Change]:
     return changes
 
 
-def create_workspace() -> tuple[str, str]:
+def create_workspace() -> Tuple[str, str]:
     """
     Add and return a new isolated workspace for the task.
 
@@ -275,13 +256,7 @@ def create_workspace() -> tuple[str, str]:
     workspace_path = os.path.join(temp_dir, workspace_name)
 
     # Add the workspace, using the temporary directory as the destination
-    run(
-        ["jj", "workspace", "add", workspace_path],
-        check=True,
-        shell=False,
-        text=True,
-        capture_output=True,
-    )
+    run(["jj", "workspace", "add", workspace_path], cwd=".")
     return workspace_path, workspace_name
 
 
@@ -308,17 +283,11 @@ def process_changes(
         )
         run(
             ["jj", "new", change_id],
-            shell=False,
-            text=True,
-            check=True,
             cwd=workspace_path,
-            capture_output=True,
         )
         result = run(
             command,
             shell=True,
-            text=True,
-            capture_output=True,
             cwd=workspace_path,
         )
         if result.stdout.strip():
