@@ -1,3 +1,6 @@
+[tools]
+python = "3.13.5"
+
 [tasks.test]
 description = "Run all tests"
-run = "python3 test1.py && python3 test2.py && python3 test_fatal.py && python3 test_stop.py"
+run = "for f in test/*.py; do mise x -- python \"$f\" || exit 1; done"

@@ -61,23 +61,23 @@ def main():
         # Run jj-run.py with a command that fails if failme.txt exists
         jj_run_command = [
             "python3",
-            str(script_dir / "jj-run.py"),
+            str((script_dir / ".." / "jj-run.py").resolve()),
             "-r",
             "::",
             "-e",
-            "fatal",
+            "stop",
             "test -f failme.txt && exit 1",
         ]
         result = demo(jj_run_command)
-        # Should exit nonzero with -e fatal
-        assert result.returncode != 0, "Should exit nonzero with -e fatal on failure"
+        # Should exit nonzero with -e stop
+        assert result.returncode != 0, "Should exit nonzero with -e stop on failure"
         assert "Command failed with return code 1" in result.stdout, (
             "Should report command failed with return code 1"
         )
-        assert "Fatal error at change" in result.stdout or result.stderr, (
-            "Should report fatal error at change"
+        assert "Stopped on change" in result.stdout or result.stderr, (
+            "Should report stopped on change"
         )
-        print("test_fatal.py: SUCCESS")
+        print("test_stop.py: SUCCESS")
     finally:
         os.chdir(original_dir)
         shutil.rmtree(repo_dir)

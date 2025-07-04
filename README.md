@@ -54,3 +54,4 @@ MIT
 5. Provide CHANGE_ID, COMMIT_ID, REPO_PATH as env vars to the command
 7. `--json` output
 8. Add a `--readonly` flag that doesn't create new changes, just runs the command for each
+9. Add instructions for setting up an alias

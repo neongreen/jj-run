@@ -71,7 +71,7 @@ def main():
         # Run jj-run.py with a command that fails if failme.txt exists
         jj_run_command = [
             "python3",
-            str(script_dir / "jj-run.py"),
+            str((script_dir / ".." / "jj-run.py").resolve()),
             "-r",
             "::",
             "-e",
@@ -92,7 +92,7 @@ def main():
         # Now test -e stop (should exit nonzero)
         jj_run_command_stop = [
             "python3",
-            str(script_dir / "jj-run.py"),
+            str((script_dir / ".." / "jj-run.py").resolve()),
             "-r",
             "::",
             "-e",

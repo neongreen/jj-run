@@ -118,7 +118,7 @@ def main():
         # Use jj-run to merge all .txt files
         jj_run_command = [
             "python3",
-            str(script_dir / "jj-run.py"),
+            str((script_dir / ".." / "jj-run.py").resolve()),
             "-r",
             "::",
             'for f in *.txt; do cat "$f" >> merged.txt; rm "$f"; done',
