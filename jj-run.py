@@ -306,15 +306,14 @@ def handle_errors(
     """
     if result.returncode != 0:
         error_msg = format_error_msg(result, change)
-        match err_strategy:
-            case "continue":
-                print(error_msg)
-            case "stop":
-                print(f"Stopped on change [with fail] {change}:\n{error_msg}")
-                return True
-            case "fatal":
-                print(f"Fatal error at change [{change}]:\n{error_msg}")
-                raise SystemExit(result.returncode)
+        if err_strategy == "continue":
+            print(error_msg)
+        elif err_strategy == "stop":
+            print(f"Stopped on change [with fail] {change}:\n{error_msg}")
+            return True
+        elif err_strategy == "fatal":
+            print(f"Fatal error at change [{change}]:\n{error_msg}")
+            raise SystemExit(result.returncode)
     return False
 
 
@@ -375,11 +374,10 @@ if __name__ == "__main__":
         after_op = get_current_op_id()
     except SystemExit as _e:
         # Only propagate nonzero exit if err_strategy is 'fatal' or 'stop'
-        match args.err_strategy:
-            case "fatal" | "stop":
-                raise
-            case "continue":
-                pass
+        if args.err_strategy in ("fatal", "stop"):
+            raise
+        elif args.err_strategy == "continue":
+            pass
 
     # Output for the user: how to compare before/after states
     if before_op and after_op:
