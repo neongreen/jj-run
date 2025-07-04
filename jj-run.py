@@ -102,10 +102,7 @@ def run_jj_command(
     :param command: User-provided command (e.g., "jj new && jj restore ...")
     :param err_strategy: Error handling strategy ("continue", "stop", "fatal")
     """
-    current_operation = run(
-        ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"], cwd="."
-    ).stdout.strip()
-    # Only print first 12 chars of operation id
+    current_operation = get_current_op_id()
     print(f"Current operation: {current_operation[:12]}")
     with managed_workspace() as (workspace_path, workspace_name):
         [workspace_change] = get_change_list(
@@ -350,16 +347,54 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def get_current_op_id() -> str:
+    """
+    Returns the current operation id (full hash) as a string.
+    """
+    return run(
+        ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"], cwd="."
+    ).stdout.strip()
+
+
 if __name__ == "__main__":
     args = parse_args()
+    before_op = None
+    after_op = None
     try:
+        # Get the operation id before running
+        before_op = get_current_op_id()
         run_jj_command(
             command=args.command, revset=args.revset, err_strategy=args.err_strategy
         )
+        # Get the operation id after running
+        after_op = get_current_op_id()
     except SystemExit as _e:
         # Only propagate nonzero exit if err_strategy is 'fatal' or 'stop'
         match args.err_strategy:
             case "fatal" | "stop":
                 raise
             case "continue":
-                sys.exit(0)
+                pass
+
+    # Output for the user: how to compare before/after states
+    if before_op and after_op:
+        if before_op != after_op:
+            print(
+                "\nTo compare the changes between the 'before' and 'after' repo states, run:"
+            )
+            # TODO: not 100% sure about off by one errors
+            print(
+                f"  jj operation diff --from {before_op[:12]} --to {after_op[:12]} -p\n"
+            )
+        else:
+            print("\nNo changes were made to the repository.\n")
+    else:
+        print("\nCouldn't get operation IDs before and after. Likely a bug in jj-run.")
+
+    # actually run
+    # print(
+    #     run(
+    #         ["jj", "op", "diff", "--from", before_op, "--to", after_op, "-p"],
+    #         cwd=".",
+    #     ).stdout
+    # )
