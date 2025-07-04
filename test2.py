@@ -10,12 +10,21 @@ from pathlib import Path
 
 def demo(command):
     """Prints, executes a command, streams its output, and returns the captured output."""
-    print(command)
+    print(command if isinstance(command, str) else " ".join(command))
     print("-----------------------------------------------------------------")
 
-    process = subprocess.Popen(
-        command, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    if isinstance(command, list):
+        process = subprocess.Popen(
+            command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    else:
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     stdout_capture = []
     stderr_capture = []
@@ -60,7 +69,15 @@ def main():
         # Show commit contents before running jj-run
         demo("jj log -p -r '::'")
         # Run jj-run.py with a command that fails if failme.txt exists
-        jj_run_command = f"python3 {script_dir / 'jj-run.py'} -r '::' -c 'test -f failme.txt && exit 1' -e continue"
+        jj_run_command = [
+            "python3",
+            str(script_dir / "jj-run.py"),
+            "-r",
+            "::",
+            "-e",
+            "continue",
+            "test -f failme.txt && exit 1",
+        ]
         result = demo(jj_run_command)
         # Should report error for failed command
         assert "Error while processing change" in result.stdout or result.stderr, (
@@ -73,7 +90,15 @@ def main():
         # Should exit 0 with -e continue
         assert result.returncode == 0, "Should exit 0 with -e continue"
         # Now test -e stop (should exit nonzero)
-        jj_run_command_stop = f"python3 {script_dir / 'jj-run.py'} -r '::' -c 'test -f failme.txt && exit 1' -e stop"
+        jj_run_command_stop = [
+            "python3",
+            str(script_dir / "jj-run.py"),
+            "-r",
+            "::",
+            "-e",
+            "stop",
+            "test -f failme.txt && exit 1",
+        ]
         result_stop = demo(jj_run_command_stop)
         assert result_stop.returncode != 0, (
             "Should exit nonzero with -e stop on failure"

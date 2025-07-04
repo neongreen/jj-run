@@ -10,12 +10,21 @@ from pathlib import Path
 
 def demo(command):
     """Prints, executes a command, streams its output, and returns the captured output."""
-    print(command)
+    print(command if isinstance(command, str) else " ".join(command))
     print("-----------------------------------------------------------------")
 
-    process = subprocess.Popen(
-        command, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    if isinstance(command, list):
+        process = subprocess.Popen(
+            command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    else:
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     stdout_capture = []
     stderr_capture = []
@@ -107,7 +116,13 @@ def main():
             sys.exit(1)
 
         # Use jj-run to merge all .txt files
-        jj_run_command = f"python3 {script_dir / 'jj-run.py'} -r '::' -c 'for f in *.txt; do cat \"$f\" >> merged.txt; rm \"$f\"; done'"
+        jj_run_command = [
+            "python3",
+            str(script_dir / "jj-run.py"),
+            "-r",
+            "::",
+            'for f in *.txt; do cat "$f" >> merged.txt; rm "$f"; done',
+        ]
         demo(jj_run_command)
 
         # Show commit contents after merging and capture for verification

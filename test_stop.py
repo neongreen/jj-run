@@ -9,11 +9,20 @@ from pathlib import Path
 
 
 def demo(command):
-    print(command)
+    print(command if isinstance(command, str) else " ".join(command))
     print("-----------------------------------------------------------------")
-    process = subprocess.Popen(
-        command, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    if isinstance(command, list):
+        process = subprocess.Popen(
+            command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    else:
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     stdout_capture = []
     stderr_capture = []
     if process.stdout:
@@ -50,7 +59,15 @@ def main():
         demo("jj commit -m 'another single .txt file' third.txt")
         demo("jj log -p -r '::'")
         # Run jj-run.py with a command that fails if failme.txt exists
-        jj_run_command = f"python3 {script_dir / 'jj-run.py'} -r '::' -c 'test -f failme.txt && exit 1' -e stop"
+        jj_run_command = [
+            "python3",
+            str(script_dir / "jj-run.py"),
+            "-r",
+            "::",
+            "-e",
+            "stop",
+            "test -f failme.txt && exit 1",
+        ]
         result = demo(jj_run_command)
         # Should exit nonzero with -e stop
         assert result.returncode != 0, "Should exit nonzero with -e stop on failure"

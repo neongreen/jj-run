@@ -266,12 +266,12 @@ def process_changes(
     all_successful = True
     import subprocess as sp
 
-    for change_data in changes:
+    total_changes = len(changes)
+    for idx, change_data in enumerate(changes, 1):
         change_id = change_data.change_id
         message = change_data.description.strip()
-        # Only print first 12 chars of change id
         print(
-            f"Processing change {change_id[:12]}: {message or '(no description set)'}"
+            f"Processing change {idx}/{total_changes} {change_id[:12]}: {message or '(no description set)'}"
         )
         run(["jj", "new", change_id], cwd=workspace_path)
         try:
@@ -332,19 +332,21 @@ def parse_args() -> argparse.Namespace:
         help="Revset to process",
     )
     parser.add_argument(
-        "-c",
-        "--command",
-        required=True,
-        help="Command to execute on commits",
-    )
-    parser.add_argument(
         "-e",
         "--err-strategy",
         choices=["continue", "stop", "fatal"],
         default="continue",
         help="Error handling strategy",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Command to execute on commits (positional, required)",
+    )
+    args = parser.parse_args()
+    if not args.command:
+        parser.error("the following arguments are required: command")
+    return args
 
 
 def get_current_op_id() -> str:
@@ -364,7 +366,9 @@ if __name__ == "__main__":
         # Get the operation id before running
         before_op = get_current_op_id()
         run_jj_command(
-            command=args.command, revset=args.revset, err_strategy=args.err_strategy
+            command=" ".join(args.command),
+            revset=args.revset,
+            err_strategy=args.err_strategy,
         )
         # Get the operation id after running
         after_op = get_current_op_id()
