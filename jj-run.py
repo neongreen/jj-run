@@ -326,6 +326,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run commands across jj changes")
     parser.add_argument(
         "-r",
+        "-s",
         "--revset",
         required=False,
         default="reachable(@, mutable())",
