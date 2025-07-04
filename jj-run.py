@@ -5,6 +5,7 @@
 # - test1.py: Basic functionality smoke test.
 
 from dataclasses import dataclass
+from contextlib import contextmanager
 import os
 import subprocess
 import argparse
@@ -51,6 +52,44 @@ def run(
         raise
 
 
+def print_command_result(result: subprocess.CompletedProcess) -> None:
+    """
+    Print the stdout and stderr of a subprocess result if present.
+    """
+    if result.stdout and result.stdout.strip():
+        print(f"stdout: {result.stdout.strip()}", end=" ")
+    if result.stderr and result.stderr.strip():
+        print(f"stderr: {result.stderr.strip()}", end=" ")
+    if result.returncode != 0:
+        print(f"Command failed with return code {result.returncode}", end=" ")
+    print()  # Add a newline after the command output
+
+
+def format_error_msg(result: subprocess.CompletedProcess, change: str) -> str:
+    """
+    Format an error message for a failed subprocess command.
+    """
+    return (
+        f"Error while processing change [{change}]:\n"
+        f"Returncode: {result.returncode}\n"
+        f"STDOUT:\n{result.stdout}\n"
+        f"STDERR:\n{result.stderr}"
+    )
+
+
+@contextmanager
+def managed_workspace():
+    """
+    Context manager to create and clean up a temporary workspace.
+    Yields (workspace_path, workspace_name).
+    """
+    workspace_path, workspace_name = create_workspace()
+    try:
+        yield workspace_path, workspace_name
+    finally:
+        forget_workspace(workspace_name)
+
+
 def run_jj_command(command: str, revset: str, err_strategy: str = "continue") -> None:
     """
     Main entry point to run `jj run` with command handling and error strategies.
@@ -62,37 +101,34 @@ def run_jj_command(command: str, revset: str, err_strategy: str = "continue") ->
         ["jj", "op", "log", "-n1", "-Tid", "--no-graph", "--no-pager"], cwd="."
     ).stdout.strip()
     print(f"Current operation: {current_operation}")
-    [workspace_path, workspace_name] = create_workspace()
-    # get the new empty change created by `jj workspace add`
-    [workspace_change] = get_change_list(
-        f"{workspace_name}@", workspace_path=workspace_path
-    )
-    changes = get_change_list(
-        f"({revset}) ~ {workspace_change.change_id} ~ root()",
-        workspace_path=workspace_path,
-    )
-    total_changes = len(changes)
-    if not changes:
-        print("No changes found to process.")
-        forget_workspace(workspace_name)
-        abandon_changes([workspace_change.change_id])
-        return
-    new_changes: list[Change] = []
-    try:
-        new_changes, all_successful = process_changes(
-            workspace_path, changes, command, err_strategy
+    with managed_workspace() as (workspace_path, workspace_name):
+        [workspace_change] = get_change_list(
+            f"{workspace_name}@", workspace_path=workspace_path
         )
-        modified_count = rewrite_parents(workspace_path, new_changes)
-        run(["jj", "workspace", "update-stale"], cwd=".")
-        run(["jj", "workspace", "update-stale"], cwd=workspace_path)
-    finally:
-        forget_workspace(workspace_name)
-        abandon_changes(
-            [c.change_id for c in new_changes] + [workspace_change.change_id]
+        changes = get_change_list(
+            f"({revset}) ~ {workspace_change.change_id} ~ root()",
+            workspace_path=workspace_path,
         )
-    print(f"Rewrote {modified_count}/{total_changes} commits.")
-    if not all_successful:
-        print("Not all changes were processed successfully.")
+        total_changes = len(changes)
+        if not changes:
+            print("No changes found to process.")
+            abandon_changes([workspace_change.change_id])
+            return
+        new_changes: list[Change] = []
+        try:
+            new_changes, all_successful = process_changes(
+                workspace_path, changes, command, err_strategy
+            )
+            modified_count = rewrite_parents(workspace_path, new_changes)
+            run(["jj", "workspace", "update-stale"], cwd=".")
+            run(["jj", "workspace", "update-stale"], cwd=workspace_path)
+        finally:
+            abandon_changes(
+                [c.change_id for c in new_changes] + [workspace_change.change_id]
+            )
+        print(f"Rewrote {modified_count}/{total_changes} commits.")
+        if not all_successful:
+            print("Not all changes were processed successfully.")
 
 
 def rewrite_parents(workspace_path: str, changes: list[Change]) -> int:
@@ -235,14 +271,9 @@ def process_changes(
             shell=True,
             cwd=workspace_path,
         )
-        if result.stdout.strip():
-            print(f"stdout: {result.stdout.strip()}", end=" ")
-        if result.stderr.strip():
-            print(f"stderr: {result.stderr.strip()}", end=" ")
+        print_command_result(result)
         if result.returncode != 0:
-            print(f"Command failed with return code {result.returncode}", end=" ")
             all_successful = False
-        print()  # Add a newline after the command output
         exit_early = handle_errors(result, err_strategy, message)
         new_changes += get_change_list("@", workspace_path=workspace_path)
         if exit_early:
@@ -262,12 +293,7 @@ def handle_errors(
     :returns: Boolean indicating whether to exit early
     """
     if result.returncode != 0:
-        error_msg = (
-            f"Error while processing change [{change}]:\n"
-            f"Returncode: {result.returncode}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
-        )
+        error_msg = format_error_msg(result, change)
         if err_strategy == "continue":
             print(error_msg)
         elif err_strategy == "stop":
@@ -285,7 +311,7 @@ def parse_args() -> argparse.Namespace:
 
     :returns: Parsed arguments
     """
-    parser = argparse.ArgumentParser(description="JJ Command Script Automation Tool")
+    parser = argparse.ArgumentParser(description="Run commands across jj changes")
     parser.add_argument(
         "-r",
         "--revset",
