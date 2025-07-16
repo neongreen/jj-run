@@ -12,14 +12,14 @@ First, install [uv](https://docs.astral.sh/uv/), the best and greatest Python pa
 Then add to your jj config:
 
 ```shell
-jj config set --user aliases.x '["util", "exec", "--", "uvx git+https://github.com/neongreen/jj-run.git"]'
+jj config set --user aliases.x '["util", "exec", "--", "uvx", "git+https://github.com/neongreen/jj-run.git"]'
 ```
 
 Or in the file:
 
 ```toml
 [aliases]
-x = ["util", "exec", "--", "uvx git+https://github.com/neongreen/jj-run.git"]
+x = ["util", "exec", "--", "uvx", "git+https://github.com/neongreen/jj-run.git"]
 ```
 
 (Can't use `run` because it's already defined as a stub.)
