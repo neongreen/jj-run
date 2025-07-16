@@ -5,10 +5,26 @@ A script to execute shell commands across multiple repository changes in isolate
 - Runs arbitrary shell commands for each change in a revset, in isolation.
 - Uses a temporary workspace for each run, so your main repo doesn't change while the script is running.
 
-## Usage
+## Installation
 
+Add to your jj config:
+
+```shell
+jj config set --user aliases.x '["util", "exec", "--", "/absolute/path/to/jj-run.py"]'
+```
+
+Or in the file:
+
+```toml
+[aliases]
+x = ["util", "exec", "--", "/absolute/path/to/jj-run.py"]
+```
+
+(Can't use `run` because it's already defined as a stub.)
+
+Then run:
 ```sh
-python3 jj-run.py -r <revset> [-e <error_strategy>] <command> 
+jj x -r <revset> [-e <error_strategy>] <command>
 ```
 
 - `-r`, `--revset`: The revset of changes to process. If not provided, defaults to `reachable(@, mutable())` (same as `jj fix`).
@@ -21,7 +37,7 @@ python3 jj-run.py -r <revset> [-e <error_strategy>] <command>
 ### Example
 
 ```sh
-python3 jj-run.py -r 'mutable()' -e continue 'make test'
+jj x 'make test'
 ```
 
 ## How it works
@@ -41,23 +57,6 @@ python3 jj-run.py -r 'mutable()' -e continue 'make test'
   - `stop`: Stops processing new changes after the first error, but completes any already started ones.
   - `fatal`: Exits immediately on the first error.
 - All changes are isolated in the temp workspace. If the script crashes, cleanup is handled per session. The original repository is never modified by failed runs.
-
-## Setting up a `jj x` alias
-
-```sh
-jj config set --user aliases.x '["util", "exec", "--", "/absolute/path/to/jj-run.py"]'
-```
-
-Or in your config:
-
-```toml
-[aliases]
-x = ["util", "exec", "--", "/absolute/path/to/jj-run.py"]
-```
-
-Replace `/absolute/path/to/jj-run.py` with the full path to `jj-run.py` script.
-
-We can't use `run` because it's already defined (as a stub).
 
 ## License
 
