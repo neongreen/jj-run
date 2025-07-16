@@ -24,7 +24,16 @@ x = ["util", "exec", "--", "uvx git+https://github.com/neongreen/jj-run.git"]
 
 (Can't use `run` because it's already defined as a stub.)
 
-Then run:
+## Usage
+
+Simplest form:
+
+```sh
+jj x <command>    # run a command on all mutable&reachable changes
+```
+
+Full form:
+
 ```sh
 jj x -r <revset> [-e <error_strategy>] <command>
 ```
@@ -36,13 +45,14 @@ jj x -r <revset> [-e <error_strategy>] <command>
   - `fatal`: Abort immediately on any error.
 - `<command>`: **Required positional argument.** The shell command to execute for each change (runs in the temp workspace).
 
-### Example
+## Limitations
 
-```sh
-jj x 'make test'
-```
+- jj-run can't encapsulate its changes into a single operation, so to undo the changes you will have to use `jj op restore`.
+- Doesn't support `--ignore-immutable` yet, so it will fail if the revset contains immutable changes.
+- Can't change descriptions of existing commits (it's "for-each-run-and-squash", not "for-each-run").
 
 ## How it works
+
 - For each run, a unique temporary directory is created and a new `jj` workspace is added there.
 - The script finds the set of changes matching the revset (excluding the workspace's own change and root).
 - For each change:
