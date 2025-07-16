@@ -362,7 +362,11 @@ def get_current_op_id() -> str:
     ).stdout.strip()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """
+    Main function to run the script.
+    """
+
     args = parse_args()
 
     try:
@@ -407,10 +411,6 @@ if __name__ == "__main__":
         )
         exit(1)
 
-    # actually run
-    # print(
-    #     run(
-    #         ["jj", "op", "diff", "--from", before_op, "--to", after_op, "-p"],
-    #         cwd=".",
-    #     ).stdout
-    # )
+
+if __name__ == "__main__":
+    main()

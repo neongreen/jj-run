@@ -4,8 +4,8 @@ python = "3.13.5"
 
 [tasks.test]
 description = "Run all tests"
-run = "for f in test/*.py; do mise x -- python \"$f\" || exit 1; done"
+run = "for f in tests/*.py; do mise x -- python \"$f\" || exit 1; done"
 
 [tasks.vermin]
 description = "Determine minimum supported Python version"
-run = "vermin --backport argparse --backport dataclasses --backport typing -vv jj-run.py"
+run = "vermin --backport argparse --backport dataclasses --backport typing -vv src/"
