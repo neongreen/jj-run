@@ -7,17 +7,19 @@ A script to execute shell commands across multiple repository changes in isolate
 
 ## Installation
 
-Add to your jj config:
+First, install [uv](https://docs.astral.sh/uv/), the best and greatest Python package manager.
+
+Then add to your jj config:
 
 ```shell
-jj config set --user aliases.x '["util", "exec", "--", "/absolute/path/to/jj-run.py"]'
+jj config set --user aliases.x '["util", "exec", "--", "uvx git+https://github.com/neongreen/jj-run.git"]'
 ```
 
 Or in the file:
 
 ```toml
 [aliases]
-x = ["util", "exec", "--", "/absolute/path/to/jj-run.py"]
+x = ["util", "exec", "--", "uvx git+https://github.com/neongreen/jj-run.git"]
 ```
 
 (Can't use `run` because it's already defined as a stub.)
