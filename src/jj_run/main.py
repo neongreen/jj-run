@@ -200,7 +200,15 @@ def get_change_list(revset: str, workspace_path: str = ".") -> list[Change]:
     :returns: Retrieved change history list as a list of dictionaries
     """
     change_process = run(
-        ["jj", "log", "-r", revset, "--template", "json(self)", "--no-graph"],
+        [
+            "jj",
+            "log",
+            "-r",
+            revset,
+            "--template=json(self)",
+            "--no-graph",
+            "--config=ui.log-word-wrap=false",
+        ],
         cwd=workspace_path,
     )
     if not change_process.stdout:
