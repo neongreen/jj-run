@@ -1,4 +1,6 @@
-# jj-run
+# migrated to neongreen/mono
+
+jj-run
 
 A script to execute shell commands across multiple repository changes in isolated workspaces using [jj](https://github.com/jj-vcs/jj).
 
