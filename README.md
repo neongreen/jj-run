@@ -1,6 +1,9 @@
-# migrated to neongreen/mono
+# jj-run migrated to [neongreen/mono](https://github.com/neongreen/mono/tree/main/jj-run)
 
-jj-run
+See <https://github.com/neongreen/mono/tree/main/jj-run> (the new implementation in Go),
+as well as <https://github.com/neongreen/mono/tree/main/jj-run-py> (the original implementation).
+
+---
 
 A script to execute shell commands across multiple repository changes in isolated workspaces using [jj](https://github.com/jj-vcs/jj).
 
